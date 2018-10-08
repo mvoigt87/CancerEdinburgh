@@ -9,11 +9,15 @@ library(forcats)
 library(data.table)
 library(broom)
 library(survival)
+# if necessary
+library(coxme)
 
 # 0.2 - Load Data (load any data set)
-setwd("C:/Users/Mathias/Documents/LongPop_Madrid/Secondment/Edinburgh/RCodeData")
+# set path to data
+setwd("C:/Users/.../RCodeData")
 load('BREAST.Rdata')
 
+# rename originial source
 d <- breastcure # fill in data set name for breastcure
 
 # 1. Checking for the variables of interest
@@ -137,14 +141,20 @@ plot_KM3
 ### --------------------------------------------------
 
 # sex variable
-class(d$sex1)
-d <- within(d, sex1 <- relevel(sex1, ref = "female"))  
-# surgery variable
-class(d$surg1)
-d <- within(d, surg1 <- relevel(surg1, ref = "no surgery")) 
+    # class(d$sex1)
+    # d <- within(d, sex1 <- relevel(sex1, ref = "female"))  
 # diagnosis variable
 class(d$dxstate1)
 d <- within(d, dxstate1 <- relevel(dxstate1, ref = "in situ")) 
+# surgery variable
+class(d$surg1)
+d <- within(d, surg1 <- relevel(surg1, ref = "no surgery")) 
+# radiation variable
+class(d$rad)
+d <- d %>% mutate(rad = ifelse(rad=="beam radiation","beam radation", "other or no radiation")) %>% 
+  mutate(rad = as.factor(rad))
+d <- within(d, rad <- relevel(rad, ref = "other or no radiation")) 
+
 
 # 3. Survival Models
 # ------------------
@@ -170,6 +180,38 @@ summary(fit_2)
 # test for proportional hazards
 cox.zph(fit_2)
 
+# 4. Compare different models/model fits
+# --------------------------------------
+
+# nested model
+anova(fit_1, fit_2)
+
+## compare AICs (also for non-nested models - generally smaller value = more information)
+AIC(fit_1)
+AIC(fit_2) - AIC(fit_1) # a negative value says the first model fits better
+
+
+### 5. Multi-Level Survival Models
+
+### If we have access to coxme -  ID = cluster ID
+
+fit_3 <- coxme(Surv(time = time.d,
+                    event = event) ~ dxstate1 + surg1 + ageGR + marstat1 + (1|ID), data = INMO.SC.2)
+print(fit_3)
+
+
+## model with robust SE via clustering
+fit_4 <- coxph(Surv(time = time.d,
+                    event = event) ~ dxstate1 + surg1 + ageGR + marstat1 + cluster(ID), 
+            data = d)
+## summary of the model
+summary(fit_4)
 
 
 
+## model with a frailty term (slower)
+fit_5 <- coxph(Surv(time = time.d,
+                    event = event) ~ dxstate1 + surg1 + ageGR + marstat1
+               + frailty(ID, distribution = "gaussian", sparse = FALSE, method = "reml"), data = d)
+## show model results
+fit_5
