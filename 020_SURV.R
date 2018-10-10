@@ -192,6 +192,8 @@ AIC(fit_2) - AIC(fit_1) # a negative value says the first model fits better
 
 
 ### 5. Multi-Level Survival Models
+### -------------------------------
+
 
 ### If we have access to coxme -  ID = cluster ID
 
@@ -201,10 +203,14 @@ print(fit_3)
 
 
 ## model with robust SE via clustering
-fit_4 <- coxph(Surv(time = time.d,
-                    event = event) ~ dxstate1 + surg1 + ageGR + marstat1 + cluster(ID), 
-            data = d)
-## summary of the model
+ ### Different frailty distribution (gamma distributed frailty distribution)
+
+# see Austin 2017:  https://onlinelibrary.wiley.com/doi/epdf/10.1111/insr.12214
+
+fit_4   <- coxph(Surv(time = time.d,
+                      event = event) ~ dxstate1 + surg1 + ageGR + marstat1 +
+                      frailty(SC,distribution="gamma"),
+                 data=d)
 summary(fit_4)
 
 
